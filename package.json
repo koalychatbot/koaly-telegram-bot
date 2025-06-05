@@ -1,15 +1,15 @@
 {
-  "name": "koaly-bot",
+  "name": "koaly-telegram-bot",
   "version": "1.0.0",
+  "description": "Bot de Telegram emocional con memoria y pagos premium.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "dotenv": "^16.0.3",
-    "express": "^5.1.0",
+    "dotenv": "^16.3.1",
     "node-telegram-bot-api": "^0.61.0",
-    "openai": "^4.0.0",
-    "stripe": "^18.2.1"
+    "openai": "^4.20.0",
+    "dayjs": "^1.11.10"
   }
 }

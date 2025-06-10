@@ -1,1 +1,57 @@
-{}
+{
+  "7934775978": {
+    "premium": true,
+    "messages": [
+      {
+        "role": "user",
+        "content": "hola"
+      },
+      {
+        "role": "user",
+        "content": "hola"
+      },
+      {
+        "role": "assistant",
+        "content": "¡Hola! ¿Cómo estás hoy?"
+      },
+      {
+        "role": "assistant",
+        "content": "¡Hola de nuevo! ¿Cómo estás hoy?"
+      },
+      {
+        "role": "user",
+        "content": "ola"
+      },
+      {
+        "role": "assistant",
+        "content": "¡Hola! Parece que hoy estás de buen humor con tus saludos. ¿Cómo te va todo?"
+      },
+      {
+        "role": "user",
+        "content": "estoy un poco triste porque el madrid a  perdido"
+      },
+      {
+        "role": "assistant",
+        "content": "Lo siento mucho. Entiendo lo frustrante que puede ser cuando tu equipo pierde, especialmente si el partido era importante para ti. A veces estos momentos forman parte del deporte. ¿Hay algo en particular sobre el juego que te gustaría compartir o hablar? Estoy aquí para escuchar."
+      },
+      {
+        "role": "user",
+        "content": "como va eso"
+      },
+      {
+        "role": "assistant",
+        "content": "Voy bien, gracias por preguntar. Más importante, ¿cómo te sientes ahora? ¿Hay algo que pueda hacer para ayudarte a animarte un poco?"
+      },
+      {
+        "role": "user",
+        "content": "me siento un poco mal con mi peso...."
+      },
+      {
+        "role": "assistant",
+        "content": "Lo siento mucho. Es normal tener esos pensamientos de vez en cuando, pero recuerda que eres valioso tal como eres. Si estás pensando en hacer algún cambio, siempre es bueno enfocarse en el bienestar y la salud más que en el peso. Pequeños pasos, como una alimentación equilibrada o un poco de ejercicio, pueden hacer una gran diferencia. Estoy aquí para escucharte si necesitas hablar más sobre ello. ¿Hay algo en particular que te preocupe?"
+      }
+    ],
+    "count": 2,
+    "lastDate": "2025-06-06"
+  }
+}

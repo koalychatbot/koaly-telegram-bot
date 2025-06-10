@@ -7,9 +7,10 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "dotenv": "^16.3.1",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.5.0",
     "node-telegram-bot-api": "^0.61.0",
-    "openai": "^4.20.0",
-    "dayjs": "^1.11.10"
+    "openai": "^4.104.0",
+    "pg": "^8.16.0"
   }
 }

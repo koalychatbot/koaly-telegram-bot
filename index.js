@@ -1,111 +1,140 @@
 require('dotenv').config();
-const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
-const { Configuration, OpenAIApi } = require('openai');
-const fs = require('fs');
+const OpenAI = require('openai');
+const { Pool } = require('pg');
 const dayjs = require('dayjs');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-const app = express();
-const port = process.env.PORT || 3000;
-app.use(express.json());
-
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
-
-const configuration = new Configuration({
+// Inicializar OpenAI
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
-const memoryFile = './memory.json';
-let memory = {};
-if (fs.existsSync(memoryFile)) {
-  memory = JSON.parse(fs.readFileSync(memoryFile));
-}
-
-function saveMemory() {
-  fs.writeFileSync(memoryFile, JSON.stringify(memory, null, 2));
-}
-
-// Webhook de Stripe para activar Premium
-app.post('/webhook', (req, res) => {
-  const event = req.body;
-
-  if (event.type === 'checkout.session.completed') {
-    const chatId = event.data.object.metadata.chatId;
-
-    if (!memory[chatId]) memory[chatId] = {};
-    memory[chatId].premium = true;
-    saveMemory();
-  }
-
-  res.status(200).send('ok');
+// Inicializar PostgreSQL
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
 });
 
-// Iniciar Express (necesario en Railway)
-app.listen(port, () => {
-  console.log(`Servidor Express escuchando en puerto ${port}`);
-});
+// Crear tabla si no existe
+db.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    premium BOOLEAN DEFAULT FALSE,
+    messages JSONB DEFAULT '[]',
+    last_date TEXT,
+    message_count INT DEFAULT 0
+  )
+`);
 
-// Comando manual para activar Premium (sigue funcionando)
-bot.onText(/\/soyPremium/, (msg) => {
+// Inicializar bot de Telegram
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+
+// Mensaje de bienvenida personalizado
+bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id.toString();
-  if (!memory[chatId]) memory[chatId] = { premium: false, messages: [], count: 0, lastDate: dayjs().format('YYYY-MM-DD') };
-  memory[chatId].premium = true;
-  saveMemory();
-  bot.sendMessage(chatId, "🎉 ¡Ahora eres usuario Premium! Disfruta de mensajes ilimitados y memoria persistente.");
+
+  await bot.sendMessage(chatId,
+    `👋 ¡Hola! Soy *Koaly*, tu amigo emocional con el corazón de un humano y la sabiduría de un psicólogo.
+
+Puedes escribirme libremente sobre lo que sientes o piensas, y estaré aquí para escucharte y ayudarte.
+
+🆓 En el modo gratuito puedes hablar conmigo un rato al día y ver si conectamos.  
+💎 Si deseas una experiencia más profunda y continua, accede a Koaly Premium:
+
+- Memoria personalizada
+- Conversaciones ilimitadas
+- Seguimiento único de lo que hablamos
+
+👉 [Hazte Premium aquí](https://buy.stripe.com/eVq3cvbwu6SB1qq2bEbMQ00)`,
+    { parse_mode: 'Markdown', disable_web_page_preview: true }
+  );
 });
 
-// Manejo de mensajes
+// Activar premium manualmente (solo para pruebas)
+bot.onText(/\/soyPremium/, async (msg) => {
+  const chatId = msg.chat.id.toString();
+  await db.query(
+    `INSERT INTO users (id, premium) VALUES ($1, TRUE)
+     ON CONFLICT (id) DO UPDATE SET premium = TRUE`,
+    [chatId]
+  );
+  await bot.sendMessage(chatId, "🎉 ¡Felicidades! Ahora tienes acceso completo como usuario Premium. Estoy aquí para ti, siempre. 🫶");
+});
+
+// Manejo general de mensajes
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id.toString();
   const userMessage = msg.text;
 
-  if (userMessage && userMessage.startsWith('/soyPremium')) return;
+  // Ignorar comandos
+  if (userMessage.startsWith('/start') || userMessage.startsWith('/soyPremium')) return;
 
-  if (!memory[chatId]) {
-    memory[chatId] = {
-      premium: false,
-      messages: [],
-      count: 0,
-      lastDate: dayjs().format('YYYY-MM-DD')
-    };
-  }
+  // Obtener datos del usuario
+  let res = await db.query('SELECT * FROM users WHERE id = $1', [chatId]);
+  let user = res.rows[0];
 
-  const userData = memory[chatId];
   const today = dayjs().format('YYYY-MM-DD');
 
-  if (userData.lastDate !== today) {
-    userData.count = 0;
-    userData.lastDate = today;
+  if (!user) {
+    // Crear nuevo usuario
+    await db.query(
+      'INSERT INTO users (id, premium, last_date, message_count) VALUES ($1, FALSE, $2, 1)',
+      [chatId, today]
+    );
+    user = { id: chatId, premium: false, messages: [], last_date: today, message_count: 1 };
+  } else {
+    if (user.last_date !== today) {
+      user.message_count = 0;
+    }
+
+    if (!user.premium && user.message_count >= 7) {
+      return bot.sendMessage(chatId, `🚫 Has hablado suficiente por hoy.
+
+Si deseas seguir hablando conmigo, desbloquea Koaly Premium aquí:
+👉 [Hazte Premium](https://buy.stripe.com/eVq3cvbwu6SB1qq2bEbMQ00)`,
+        { parse_mode: 'Markdown' });
+    }
+
+    user.message_count += 1;
   }
 
-  if (!userData.premium && userData.count >= 7) {
-    bot.sendMessage(chatId, "🚫 Has alcanzado tu límite de 7 mensajes hoy.\n\nActualiza a Koaly Premium con /soyPremium para continuar ❤️");
-    return;
-  }
-
-  userData.messages.push({ role: 'user', content: userMessage });
-  userData.messages = userData.messages.slice(-20);
-  userData.count++;
-
-  const messages = [
-    { role: 'system', content: 'Eres Koaly, un amigo empático con memoria para usuarios premium. Responde con calidez y comprensión.' },
-    ...userData.messages
+  // Preparar historial (solo para premium)
+  let messages = [
+    { role: 'system', content: 'Eres Koaly, un amigo empático con sabiduría de psicólogo. Escucha con atención y responde con calidez y humanidad.' }
   ];
 
+  if (user.premium && user.messages?.length > 0) {
+    messages = messages.concat(user.messages);
+  }
+
+  messages.push({ role: 'user', content: userMessage });
+
+  // Obtener respuesta de OpenAI
   try {
-    const completion = await openai.createChatCompletion({
+    const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages
     });
 
-    const botReply = completion.data.choices[0].message.content;
-    userData.messages.push({ role: 'assistant', content: botReply });
-    saveMemory();
-    bot.sendMessage(chatId, botReply);
-  } catch (e) {
-    console.error("OpenAI error:", e);
-    bot.sendMessage(chatId, "⚠️ Lo siento, algo salió mal hablando conmigo.");
+    const reply = completion.choices[0].message.content;
+
+    // Guardar nuevo estado
+    if (user.premium) {
+      const updatedMessages = messages.slice(-20); // solo los últimos 20 mensajes
+      await db.query(
+        `UPDATE users SET messages = $1, last_date = $2, message_count = $3 WHERE id = $4`,
+        [JSON.stringify(updatedMessages), today, user.message_count, chatId]
+      );
+    } else {
+      await db.query(
+        `UPDATE users SET last_date = $1, message_count = $2 WHERE id = $3`,
+        [today, user.message_count, chatId]
+      );
+    }
+
+    await bot.sendMessage(chatId, reply);
+  } catch (error) {
+    console.error("❌ Error con OpenAI:", error);
+    await bot.sendMessage(chatId, "⚠️ Lo siento, algo salió mal al hablar contigo.");
   }
 });

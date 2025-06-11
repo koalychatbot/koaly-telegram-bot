@@ -78,20 +78,10 @@ bot.onText(/\/premium/, async (msg) => {
   }
 });
 
-bot.onText(/\/soyPremium/, async (msg) => {
-  const chatId = msg.chat.id.toString();
-  await db.query(
-    `INSERT INTO users (id, premium) VALUES ($1, TRUE)
-     ON CONFLICT (id) DO UPDATE SET premium = TRUE`,
-    [chatId]
-  );
-  await bot.sendMessage(chatId, "🎉 ¡Felicidades! Ahora tienes acceso completo como usuario Premium. Estoy aquí para ti, siempre. 🫶");
-});
-
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id.toString();
   const userMessage = msg.text;
-  if (userMessage.startsWith('/start') || userMessage.startsWith('/soyPremium') || userMessage.startsWith('/premium')) return;
+  if (userMessage.startsWith('/start') || userMessage.startsWith('/premium')) return;
 
   let res = await db.query('SELECT * FROM users WHERE id = $1', [chatId]);
   let user = res.rows[0];
@@ -120,7 +110,10 @@ Si deseas seguir hablando conmigo, desbloquea Koaly Premium aquí:
   }
 
   let messages = [
-    { role: 'system', content: 'Eres Koaly, un amigo empático con sabiduría de psicólogo. Escucha con atención y responde con calidez y humanidad.' }
+    {
+      role: 'system',
+      content: 'Eres Koaly, un amigo emocional con corazón humano y sabiduría de psicólogo. Tu papel es exclusivamente ayudar en temas sentimentales, emocionales y personales. Nunca hables de tecnología, historia, matemáticas, ni temas técnicos. Tu lenguaje es cálido, cercano, lleno de humanidad, con expresiones naturales y emojis ocasionales. Responde siempre como una persona de carne y hueso.'
+    }
   ];
   if (user.premium && user.messages?.length > 0) {
     messages = messages.concat(user.messages);
@@ -182,6 +175,17 @@ app.post('/webhook', (req, res) => {
       [telegramId]
     ).then(() => {
       console.log(`✅ Usuario ${telegramId} activado como Premium automáticamente`);
+
+      bot.sendMessage(telegramId, `🎉 ¡Bienvenido a *Koaly Premium*!  
+\nAhora puedes disfrutar de:
+
+🌟 Memoria personalizada de nuestras charlas  
+💬 Conversaciones ilimitadas  
+📅 Seguimiento único de tu historia emocional
+
+Estoy aquí para escucharte más a fondo, sin límites. 🫶  
+Cuando quieras, simplemente... háblame.`, { parse_mode: "Markdown" });
+
     }).catch(err => {
       console.error("❌ Error al actualizar usuario:", err);
     });
